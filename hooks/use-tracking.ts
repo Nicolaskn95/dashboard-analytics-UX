@@ -1,43 +1,103 @@
-"use client"
+'use client'
 
-import { useEffect, useCallback, useRef } from "react"
-import type { FunnelStage } from "@/lib/types"
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { FunnelStage } from '@/lib/types'
+
+type ABVersion = 'A' | 'B'
+
+const SESSION_ID_KEY = 'ux_session_id'
+const AB_VERSION_KEY = 'ux_ab_version'
+const AB_SOURCE_KEY = 'ux_ab_source'
 
 function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
-function getDevice(): "desktop" | "mobile" | "tablet" {
-  if (typeof window === "undefined") return "desktop"
+function getDevice(): 'desktop' | 'mobile' | 'tablet' {
+  if (typeof window === 'undefined') return 'desktop'
   const width = window.innerWidth
-  if (width < 768) return "mobile"
-  if (width < 1024) return "tablet"
-  return "desktop"
+  if (width < 768) return 'mobile'
+  if (width < 1024) return 'tablet'
+  return 'desktop'
 }
 
 function getRegion(): string {
-  const regions = ["BR", "US", "EU", "LATAM"]
+  const regions = ['BR', 'US', 'EU', 'LATAM']
   return regions[Math.floor(Math.random() * regions.length)]
 }
 
-function getABVersion(): "A" | "B" {
-  return Math.random() > 0.5 ? "A" : "B"
+function getRandomABVersion(): ABVersion {
+  return Math.random() > 0.5 ? 'A' : 'B'
+}
+
+function isABVersion(value: string | null | undefined): value is ABVersion {
+  return value === 'A' || value === 'B'
+}
+
+function getABVersionFromUrl(): ABVersion | null {
+  if (typeof window === 'undefined') return null
+
+  const value = new URLSearchParams(window.location.search).get('ab')?.toUpperCase()
+  return isABVersion(value) ? value : null
+}
+
+function getStoredABVersion(): ABVersion | null {
+  if (typeof window === 'undefined') return null
+
+  const value = sessionStorage.getItem(AB_VERSION_KEY)
+  return isABVersion(value) ? value : null
+}
+
+function createSession(abVersion: ABVersion, source: 'forced' | 'random') {
+  const sessionId = generateSessionId()
+  sessionStorage.setItem(SESSION_ID_KEY, sessionId)
+  sessionStorage.setItem(AB_VERSION_KEY, abVersion)
+  sessionStorage.setItem(AB_SOURCE_KEY, source)
+
+  return sessionId
+}
+
+function resolveTrackingSession() {
+  const forcedABVersion = getABVersionFromUrl()
+  const storedABVersion = getStoredABVersion()
+  let sessionId = sessionStorage.getItem(SESSION_ID_KEY)
+
+  if (forcedABVersion) {
+    if (!sessionId || storedABVersion !== forcedABVersion) {
+      sessionId = createSession(forcedABVersion, 'forced')
+      return { sessionId, abVersion: forcedABVersion, isNewSession: true }
+    }
+
+    sessionStorage.setItem(AB_VERSION_KEY, forcedABVersion)
+    sessionStorage.setItem(AB_SOURCE_KEY, 'forced')
+    return { sessionId, abVersion: forcedABVersion, isNewSession: false }
+  }
+
+  if (sessionId && storedABVersion) {
+    return { sessionId, abVersion: storedABVersion, isNewSession: false }
+  }
+
+  const randomABVersion = getRandomABVersion()
+  sessionId = createSession(randomABVersion, 'random')
+
+  return { sessionId, abVersion: randomABVersion, isNewSession: true }
 }
 
 export function useTracking(page: FunnelStage) {
   const sessionIdRef = useRef<string | null>(null)
   const pageEnteredAtRef = useRef<number>(Date.now())
   const hasStartedRef = useRef(false)
+  const [abVersion, setABVersion] = useState<ABVersion>('A')
 
   const track = useCallback(async (type: string, data: Record<string, unknown>) => {
     try {
-      await fetch("/api/tracking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await fetch('/api/tracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, data }),
       })
     } catch (error) {
-      console.error("Erro ao enviar tracking:", error)
+      console.error('Erro ao enviar tracking:', error)
     }
   }, [])
 
@@ -50,7 +110,7 @@ export function useTracking(page: FunnelStage) {
     track("click", {
       sessionId,
       page,
-      elementId: target.id || target.className || "unknown",
+      elementId: target.id || target.className || 'unknown',
       elementType: target.tagName.toLowerCase(),
       x: event.clientX,
       y: event.clientY,
@@ -63,48 +123,38 @@ export function useTracking(page: FunnelStage) {
     if (hasStartedRef.current) return
     hasStartedRef.current = true
 
-    // Get or create session
-    let sessionId = sessionStorage.getItem("ux_session_id")
-    let isNewSession = false
+    const session = resolveTrackingSession()
 
-    if (!sessionId) {
-      sessionId = generateSessionId()
-      sessionStorage.setItem("ux_session_id", sessionId)
-      isNewSession = true
-    }
-
-    sessionIdRef.current = sessionId
+    sessionIdRef.current = session.sessionId
     pageEnteredAtRef.current = Date.now()
+    setABVersion(session.abVersion)
 
     // Start session if new
-    if (isNewSession) {
-      const abVersion = getABVersion()
-      sessionStorage.setItem("ux_ab_version", abVersion)
-      
-      track("session_start", {
-        sessionId,
+    if (session.isNewSession) {
+      track('session_start', {
+        sessionId: session.sessionId,
         device: getDevice(),
         region: getRegion(),
-        abVersion,
+        abVersion: session.abVersion,
         userAgent: navigator.userAgent,
       })
     }
 
     // Track page view
-    track("page_view", {
-      sessionId,
+    track('page_view', {
+      sessionId: session.sessionId,
       page,
     })
 
     // Add click listener
-    document.addEventListener("click", trackClick)
+    document.addEventListener('click', trackClick)
 
     // Cleanup on page leave
     return () => {
-      document.removeEventListener("click", trackClick)
+      document.removeEventListener('click', trackClick)
       
       if (sessionIdRef.current) {
-        track("page_leave", {
+        track('page_leave', {
           sessionId: sessionIdRef.current,
           page,
         })
@@ -118,7 +168,7 @@ export function useTracking(page: FunnelStage) {
 
     const timeToConvert = Math.round((Date.now() - pageEnteredAtRef.current) / 1000)
 
-    track("conversion", {
+    track('conversion', {
       sessionId,
       fromPage: page,
       toPage,
@@ -126,10 +176,7 @@ export function useTracking(page: FunnelStage) {
     })
   }, [page, track])
 
-  const getABVersion = useCallback((): "A" | "B" => {
-    if (typeof window === "undefined") return "A"
-    return (sessionStorage.getItem("ux_ab_version") as "A" | "B") || "A"
-  }, [])
+  const getABVersion = useCallback((): ABVersion => abVersion, [abVersion])
 
   return {
     trackConversion,

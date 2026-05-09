@@ -1,4 +1,17 @@
+import dns from "node:dns";
 import { MongoClient, Db } from "mongodb";
+
+const DNS_SERVERS = ["8.8.8.8", "1.1.1.1"];
+
+let hasConfiguredDns = false;
+
+function configureDnsResolver() {
+  if (hasConfiguredDns) return;
+
+  dns.setServers(DNS_SERVERS);
+  hasConfiguredDns = true;
+}
+
 // teste depoly
 // Connection string do MongoDB Atlas
 const MONGODB_URI =
@@ -17,6 +30,8 @@ async function getClient(): Promise<MongoClient> {
   if (client && clientPromise) {
     return clientPromise;
   }
+
+  configureDnsResolver();
 
   client = new MongoClient(MONGODB_URI, options);
   clientPromise = client.connect();

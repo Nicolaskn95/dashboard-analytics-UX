@@ -14,6 +14,7 @@ import { Monitor, Smartphone, Tablet } from 'lucide-react'
 
 interface RegistroUX {
   id: string
+  usuario: string
   pagina: 'home' | 'produto' | 'carrinho' | 'checkout'
   cliques: number
   tempoNaPagina: number
@@ -50,11 +51,11 @@ export function DataTable({ data }: DataTableProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                <TableHead>Usuário</TableHead>
                 <TableHead>Página</TableHead>
                 <TableHead className="text-center">Cliques</TableHead>
                 <TableHead className="text-center">Tempo (s)</TableHead>
@@ -74,7 +75,7 @@ export function DataTable({ data }: DataTableProps) {
               ) : (
                 data.map((registro) => (
                   <TableRow key={registro.id}>
-                    <TableCell className="font-mono text-xs">{registro.id.slice(-8)}</TableCell>
+                    <TableCell className="font-mono text-xs">{registro.usuario.slice(-14)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{registro.pagina}</Badge>
                     </TableCell>
