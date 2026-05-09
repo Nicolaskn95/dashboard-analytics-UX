@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ABTestLinks } from "@/components/ab-test-links"
 
 export default function TesteLayout({
   children,
@@ -9,11 +10,11 @@ export default function TesteLayout({
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
-          <nav className="flex items-center justify-between">
+          <nav className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/teste" className="text-xl font-bold text-foreground">
               Loja UX Test
             </Link>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-4">
               <Link 
                 href="/teste" 
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -39,6 +40,7 @@ export default function TesteLayout({
                 Checkout
               </Link>
             </div>
+            <ABTestLinks compact />
             <Link 
               href="/" 
               className="text-xs text-muted-foreground hover:text-foreground transition-colors border border-border px-3 py-1.5 rounded-md"
