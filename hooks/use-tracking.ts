@@ -21,9 +21,9 @@ function getDevice(): 'desktop' | 'mobile' | 'tablet' {
   return 'desktop'
 }
 
+/** Região fixa para o protótipo. Para país real: geolocalização por IP na API ou GPS + geocoding reverso no cliente. */
 function getRegion(): string {
-  const regions = ['BR', 'US', 'EU', 'LATAM']
-  return regions[Math.floor(Math.random() * regions.length)]
+  return 'BR'
 }
 
 function getRandomABVersion(): ABVersion {
